@@ -47,11 +47,20 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({ teams, onUpdateTeams }) => 
             <p className="text-sm text-slate-400 mb-6">{team.members.length} Members active</p>
 
             <div className="space-y-3 mb-6">
-              {team.members.map((member, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+              {team.members.map((member) => (
+                <div key={member.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                   <div className="flex items-center gap-3">
-                    <img src={`https://picsum.photos/seed/${member}/32/32`} className="w-8 h-8 rounded-full" alt={member} />
-                    <span className="text-sm font-medium text-slate-700">{member}</span>
+                    <img 
+                      src={`https://picsum.photos/seed/${member.id}/32/32`} 
+                      className="w-8 h-8 rounded-full" 
+                      alt={member.name} 
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-slate-700">{member.name}</span>
+                      {member.role && (
+                        <span className="text-[10px] text-slate-400">{member.role}</span>
+                      )}
+                    </div>
                   </div>
                   <span className="text-[10px] font-bold text-slate-300 uppercase">Member</span>
                 </div>
