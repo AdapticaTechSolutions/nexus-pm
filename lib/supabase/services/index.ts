@@ -6,6 +6,7 @@
  * @module lib/supabase/services
  */
 
+export * from './clients';
 export * from './projects';
 export * from './tasks';
 export * from './teams';

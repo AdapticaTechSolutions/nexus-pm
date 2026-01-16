@@ -110,10 +110,17 @@ export async function getProjectById(projectId: string): Promise<Project | null>
  */
 export async function createProject(payload: CreateProjectPayload): Promise<Project> {
   // Get current user's profile for created_by
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .single();
+  const { data: { user } } = await supabase.auth.getUser();
+  let createdBy = null;
+  
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+    createdBy = profile?.id;
+  }
 
   const { data, error } = await supabase
     .from('projects')
@@ -127,7 +134,7 @@ export async function createProject(payload: CreateProjectPayload): Promise<Proj
       currency: payload.currency,
       client_id: payload.clientId,
       status: 'active',
-      created_by: profile?.id,
+      created_by: createdBy,
     })
     .select(`
       *,
@@ -150,29 +157,41 @@ export async function createProject(payload: CreateProjectPayload): Promise<Proj
 
   // Create deliverables if provided
   if (payload.deliverables && payload.deliverables.length > 0) {
-    await supabase.from('deliverables').insert(
+    const { error: deliverablesError } = await supabase.from('deliverables').insert(
       payload.deliverables.map(d => ({
         project_id: data.id,
         title: d.title,
-        description: d.description,
-        due_date: d.dueDate,
+        description: d.description || null,
+        due_date: d.dueDate || null,
         is_completed: false,
       }))
     );
+    
+    if (deliverablesError) {
+      console.error('Error creating deliverables:', deliverablesError);
+    }
   }
 
   // Assign teams if provided
   if (payload.assignedTeamIds && payload.assignedTeamIds.length > 0) {
-    await supabase.from('project_teams').insert(
+    const { error: teamsError } = await supabase.from('project_teams').insert(
       payload.assignedTeamIds.map(teamId => ({
         project_id: data.id,
         team_id: teamId,
       }))
     );
+    
+    if (teamsError) {
+      console.error('Error assigning teams:', teamsError);
+    }
   }
 
   // Refetch to get all related data
-  return getProjectById(data.id) as Promise<Project>;
+  const project = await getProjectById(data.id);
+  if (!project) {
+    throw new Error('Failed to fetch created project');
+  }
+  return project;
 }
 
 /**
@@ -200,6 +219,7 @@ export async function updateProject(
   if (updates.budgetSpent !== undefined) updateData.budget_spent = updates.budgetSpent;
   if (updates.currency !== undefined) updateData.currency = updates.currency;
   if (updates.status !== undefined) updateData.status = updates.status;
+  if (updates.archivedAt !== undefined) updateData.archived_at = updates.archivedAt;
 
   const { data, error } = await supabase
     .from('projects')
@@ -238,10 +258,33 @@ export async function updateProject(
  * @returns Archived project
  */
 export async function archiveProject(projectId: string): Promise<Project> {
-  return updateProject(projectId, {
-    status: ProjectStatus.ARCHIVED,
-    archivedAt: new Date().toISOString(),
-  });
+  const { data, error } = await supabase
+    .from('projects')
+    .update({
+      status: ProjectStatus.ARCHIVED,
+      archived_at: new Date().toISOString(),
+    })
+    .eq('id', projectId)
+    .select(`
+      *,
+      client:clients(*),
+      project_teams:project_teams(
+        team:teams(*)
+      ),
+      deliverables:deliverables(*),
+      resource_allocations:resource_allocations(
+        team:teams(*)
+      ),
+      budget_expenses:budget_expenses(*)
+    `)
+    .single();
+
+  if (error) {
+    console.error('Error archiving project:', error);
+    throw error;
+  }
+
+  return transformProject(data);
 }
 
 /**

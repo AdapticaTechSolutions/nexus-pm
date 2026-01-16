@@ -6,7 +6,8 @@ import {
   Clock, 
   CheckCircle2, 
   AlertCircle,
-  FolderOpen
+  FolderOpen,
+  Plus
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatCurrency } from '../utils/currency';
@@ -16,10 +17,11 @@ interface DashboardProps {
   projects: Project[];
   tasks: Task[];
   onProjectClick: (id: string) => void;
+  onCreateProject?: () => void;
   currency: CurrencyCode;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ projects, tasks, onProjectClick, currency }) => {
+const Dashboard: React.FC<DashboardProps> = ({ projects, tasks, onProjectClick, onCreateProject, currency }) => {
   const stats = [
     { label: 'Active Projects', value: projects.length, icon: FolderOpen, color: 'text-blue-600', bg: 'bg-blue-50' },
     { label: 'Pending Tasks', value: tasks.filter(t => t.status !== TaskStatus.DONE).length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
@@ -35,6 +37,21 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, tasks, onProjectClick, 
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Dashboard</h2>
+          <p className="text-slate-500">Overview of your projects and tasks</p>
+        </div>
+        {onCreateProject && (
+          <button 
+            onClick={onCreateProject}
+            className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+          >
+            <Plus size={20} />
+            Create Project
+          </button>
+        )}
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, idx) => (
           <div key={idx} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">

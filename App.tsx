@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   FolderKanban, 
@@ -23,6 +23,11 @@ import ProjectDetail from './components/ProjectDetail';
 import TeamsManager from './components/TeamsManager';
 import ClientPortal from './components/ClientPortal';
 import Settings from './components/Settings';
+import CreateProjectModal from './components/CreateProjectModal';
+import { getProjects } from './lib/supabase/services/projects';
+import { getTasksByProject } from './lib/supabase/services/tasks';
+import { getTeams } from './lib/supabase/services/teams';
+import { getTickets } from './lib/supabase/services/tickets';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<ViewRole>('admin');
@@ -30,13 +35,66 @@ const App: React.FC = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [currency, setCurrency] = useState<CurrencyCode>('USD');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // State Management
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [taskGroups, setTaskGroups] = useState<TaskGroup[]>(mockTaskGroups);
-  const [teams, setTeams] = useState<Team[]>(mockTeams);
-  const [tickets, setTickets] = useState<Ticket[]>(mockTickets);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  
+  // Loading and error states
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load data from Supabase
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [projectsData, teamsData, ticketsData] = await Promise.all([
+        getProjects(),
+        getTeams(),
+        getTickets(),
+      ]);
+      
+      setProjects(projectsData);
+      setTeams(teamsData);
+      setTickets(ticketsData);
+      
+      // Load tasks for all projects
+      const allTasks: Task[] = [];
+      for (const project of projectsData) {
+        try {
+          const projectTasks = await getTasksByProject(project.id);
+          allTasks.push(...projectTasks);
+        } catch (err) {
+          console.error(`Error loading tasks for project ${project.id}:`, err);
+        }
+      }
+      setTasks(allTasks);
+    } catch (err: any) {
+      console.error('Error loading data:', err);
+      setError(err.message || 'Failed to load data');
+      // Fallback to mock data on error
+      setProjects(mockProjects);
+      setTasks(mockTasks);
+      setTeams(mockTeams);
+      setTickets(mockTickets);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProjectCreated = () => {
+    loadData(); // Reload projects after creation
+  };
 
   const activeProject = useMemo(() => 
     projects.find(p => p.id === selectedProjectId), 
@@ -48,8 +106,20 @@ const App: React.FC = () => {
     setActiveTab('project-detail');
   };
 
-  const updateProject = (projectId: string, updates: Partial<Project>) => {
-    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...updates } : p));
+  const updateProject = async (projectId: string, updates: Partial<Project>) => {
+    try {
+      // Update in Supabase
+      const { updateProject: updateProjectService } = await import('./lib/supabase/services/projects');
+      await updateProjectService(projectId, updates);
+      
+      // Reload projects to get latest data
+      const updatedProjects = await getProjects();
+      setProjects(updatedProjects);
+    } catch (err: any) {
+      console.error('Error updating project:', err);
+      // Still update local state for optimistic UI
+      setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...updates } : p));
+    }
   };
 
   const SidebarItem = ({ id, icon: Icon, label, disabled = false }: any) => (
@@ -82,9 +152,41 @@ const App: React.FC = () => {
 
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard projects={projects} tasks={tasks} onProjectClick={navigateToProject} currency={currency} />;
+        return (
+          <>
+            <Dashboard 
+              projects={projects} 
+              tasks={tasks} 
+              onProjectClick={navigateToProject}
+              onCreateProject={() => setIsCreateModalOpen(true)}
+              currency={currency} 
+            />
+            <CreateProjectModal
+              isOpen={isCreateModalOpen}
+              onClose={() => setIsCreateModalOpen(false)}
+              onSuccess={handleProjectCreated}
+              currency={currency}
+            />
+          </>
+        );
       case 'projects':
-        return <ProjectList projects={projects} tasks={tasks} onProjectClick={navigateToProject} currency={currency} />;
+        return (
+          <>
+            <ProjectList 
+              projects={projects} 
+              tasks={tasks} 
+              onProjectClick={navigateToProject}
+              onCreateProject={() => setIsCreateModalOpen(true)}
+              currency={currency} 
+            />
+            <CreateProjectModal
+              isOpen={isCreateModalOpen}
+              onClose={() => setIsCreateModalOpen(false)}
+              onSuccess={handleProjectCreated}
+              currency={currency}
+            />
+          </>
+        );
       case 'project-detail':
         return activeProject ? (
           <ProjectDetail 
@@ -201,7 +303,29 @@ const App: React.FC = () => {
 
         {/* Dynamic Content */}
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-          {renderContent()}
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-slate-500">Loading...</p>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center bg-red-50 border border-red-200 rounded-xl p-6 max-w-md">
+                <p className="text-red-700 font-bold mb-2">Error Loading Data</p>
+                <p className="text-red-600 text-sm mb-4">{error}</p>
+                <button
+                  onClick={loadData}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          ) : (
+            renderContent()
+          )}
         </div>
       </main>
     </div>

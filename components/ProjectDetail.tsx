@@ -70,7 +70,10 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
             <button className="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-500">
               <MessageSquare size={20} />
             </button>
-            <button className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-200">
+            <button 
+              onClick={() => {/* TODO: Implement add task modal */}}
+              className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+            >
               <Plus size={20} />
               Add Task
             </button>

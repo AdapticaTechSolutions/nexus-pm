@@ -10,10 +10,11 @@ interface ProjectListProps {
   projects: Project[];
   tasks: Task[];
   onProjectClick: (id: string) => void;
+  onCreateProject?: () => void;
   currency: CurrencyCode;
 }
 
-const ProjectList: React.FC<ProjectListProps> = ({ projects, tasks, onProjectClick, currency }) => {
+const ProjectList: React.FC<ProjectListProps> = ({ projects, tasks, onProjectClick, onCreateProject, currency }) => {
   return (
     <div className="max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-8">
@@ -21,7 +22,10 @@ const ProjectList: React.FC<ProjectListProps> = ({ projects, tasks, onProjectCli
           <h2 className="text-2xl font-bold text-slate-800">Projects</h2>
           <p className="text-slate-500">Managing {projects.length} active initiatives</p>
         </div>
-        <button className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-200">
+        <button 
+          onClick={onCreateProject}
+          className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+        >
           <Plus size={20} />
           Create Project
         </button>
