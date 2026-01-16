@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, DollarSign, Users, FileText } from 'lucide-react';
-import { CurrencyCode, Client, Team } from '../types';
+import { X, Calendar, DollarSign, Users } from 'lucide-react';
+import { CurrencyCode, Team } from '../types';
 import { createProject, CreateProjectPayload } from '../lib/supabase/services/projects';
-import { getClients } from '../lib/supabase/services/clients';
 import { getTeams } from '../lib/supabase/services/teams';
 
 interface CreateProjectModalProps {
@@ -20,7 +19,6 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [clients, setClients] = useState<Client[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [formData, setFormData] = useState<Partial<CreateProjectPayload>>({
     name: '',
@@ -35,21 +33,17 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      loadData();
+      loadTeams();
     }
   }, [isOpen]);
 
-  const loadData = async () => {
+  const loadTeams = async () => {
     try {
-      const [clientsData, teamsData] = await Promise.all([
-        getClients(),
-        getTeams(),
-      ]);
-      setClients(clientsData);
+      const teamsData = await getTeams();
       setTeams(teamsData);
     } catch (err) {
-      console.error('Error loading data:', err);
-      setError('Failed to load clients or teams');
+      console.error('Error loading teams:', err);
+      setError('Failed to load teams');
     }
   };
 
@@ -214,21 +208,17 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-2">
-              Client *
+              Client ID *
             </label>
-            <select
+            <input
+              type="text"
               value={formData.clientId}
               onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
+              placeholder="Enter client UUID"
               className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
-            >
-              <option value="">Select a client</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.company} - {client.name}
-                </option>
-              ))}
-            </select>
+            />
+            <p className="text-xs text-slate-400 mt-1">Enter the UUID of the client for this project</p>
           </div>
 
           <div>

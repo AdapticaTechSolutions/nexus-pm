@@ -127,6 +127,20 @@ RETURNS BOOLEAN AS $$
     );
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
+/**
+ * Check if current user is a member of a team
+ * Uses SECURITY DEFINER to bypass RLS and avoid infinite recursion
+ */
+CREATE OR REPLACE FUNCTION is_user_in_team(team_uuid UUID)
+RETURNS BOOLEAN AS $$
+    SELECT EXISTS (
+        SELECT 1 FROM team_members tm
+        JOIN profiles p ON p.id = tm.profile_id
+        WHERE tm.team_id = team_uuid 
+        AND p.user_id = auth.uid()
+    );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
 -- ============================================================================
 -- PROFILES POLICIES
 -- ============================================================================
@@ -207,15 +221,12 @@ CREATE POLICY "Admins have full access to teams"
     WITH CHECK (is_admin());
 
 -- Team members can read teams they belong to
+-- Uses helper function to avoid RLS recursion
 CREATE POLICY "Team members can read their teams"
     ON teams FOR SELECT
     USING (
         is_admin()
-        OR EXISTS (
-            SELECT 1 FROM team_members tm
-            JOIN profiles p ON p.id = tm.profile_id
-            WHERE tm.team_id = teams.id AND p.user_id = auth.uid()
-        )
+        OR is_user_in_team(teams.id)
     );
 
 -- Team members can read teams assigned to their projects
@@ -240,6 +251,7 @@ CREATE POLICY "Admins have full access to team members"
     WITH CHECK (is_admin());
 
 -- Users can read team memberships for teams they belong to
+-- Uses helper function to avoid RLS recursion
 CREATE POLICY "Users can read their team memberships"
     ON team_members FOR SELECT
     USING (
@@ -248,11 +260,7 @@ CREATE POLICY "Users can read their team memberships"
             SELECT 1 FROM profiles p
             WHERE p.id = team_members.profile_id AND p.user_id = auth.uid()
         )
-        OR EXISTS (
-            SELECT 1 FROM team_members tm
-            JOIN profiles p ON p.id = tm.profile_id
-            WHERE tm.team_id = team_members.team_id AND p.user_id = auth.uid()
-        )
+        OR is_user_in_team(team_members.team_id)
     );
 
 -- ============================================================================
