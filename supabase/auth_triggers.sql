@@ -74,7 +74,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
  * Trigger to create profile on user signup
  * 
  * Fires after a new user is inserted into auth.users
+ * 
+ * Note: Drops existing trigger if it exists to allow re-running this script
  */
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW
@@ -102,7 +106,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 /**
  * Trigger to sync email updates
+ * 
+ * Note: Drops existing trigger if it exists to allow re-running this script
  */
+DROP TRIGGER IF EXISTS on_auth_user_email_updated ON auth.users;
+
 CREATE TRIGGER on_auth_user_email_updated
     AFTER UPDATE OF email ON auth.users
     FOR EACH ROW
