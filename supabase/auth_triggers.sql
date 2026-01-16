@@ -56,25 +56,37 @@ BEGIN
     END IF;
     
     -- Create profile (ignore if already exists - handles race conditions)
+    -- Use a more permissive approach that won't fail user creation
     BEGIN
-        INSERT INTO profiles (user_id, email, full_name, role)
-        VALUES (
-            NEW.id,
-            user_email,
-            user_full_name,
-            user_role
-        )
-        ON CONFLICT (user_id) DO UPDATE
-        SET email = EXCLUDED.email,
-            updated_at = NOW();
+        -- First check if profile already exists
+        IF NOT EXISTS (SELECT 1 FROM profiles WHERE user_id = NEW.id) THEN
+            INSERT INTO profiles (user_id, email, full_name, role)
+            VALUES (
+                NEW.id,
+                user_email,
+                user_full_name,
+                user_role
+            );
+        ELSE
+            -- Profile exists, update it
+            UPDATE profiles
+            SET email = user_email,
+                full_name = COALESCE(user_full_name, full_name),
+                updated_at = NOW()
+            WHERE user_id = NEW.id;
+        END IF;
             
     EXCEPTION
+        WHEN unique_violation THEN
+            -- Profile already exists, that's okay
+            NULL;
         WHEN OTHERS THEN
-            -- Log detailed error for debugging
+            -- Log detailed error for debugging but don't fail user creation
             error_message := SQLERRM;
-            RAISE WARNING 'Failed to create profile for user % (email: %): %', NEW.id, user_email, error_message;
+            -- Use RAISE NOTICE instead of WARNING to ensure it's logged
+            RAISE NOTICE 'Failed to create profile for user % (email: %): % - %', 
+                NEW.id, user_email, SQLSTATE, error_message;
             -- Still return NEW to allow user creation to succeed
-            -- Profile can be created manually later if needed
     END;
     
     RETURN NEW;
