@@ -182,6 +182,18 @@ This error occurs when inviting/creating users. See **TROUBLESHOOTING.md** for d
 5. **Regularly review** RLS policies for correctness
 6. **Monitor** Supabase logs for suspicious activity
 
+## Fix Security Warnings for Other Tables
+
+If you see security warnings for tables like `users`, `payments`, or `bookings` (not part of Nexus PM):
+
+1. **Run verification**: Execute `verify_rls.sql` to see all tables
+2. **Fix other tables**: 
+   - If you need them: Run `fix_security_issues.sql` to enable RLS
+   - If you don't need them: Drop them using the script
+3. **Verify**: Check Supabase Security dashboard again
+
+**Note**: Nexus PM tables (profiles, projects, tasks, etc.) already have RLS enabled via `rls_policies.sql`.
+
 ## Next Steps
 
 1. Integrate Supabase services into your React components
