@@ -25,8 +25,13 @@ DECLARE
     user_full_name TEXT;
     user_role user_role := 'team_member';
 BEGIN
-    -- Get email from auth.users
+    -- Get email from auth.users (required)
     user_email := NEW.email;
+    
+    -- Validate email exists
+    IF user_email IS NULL OR user_email = '' THEN
+        RAISE EXCEPTION 'User email is required';
+    END IF;
     
     -- Extract full name from metadata if available
     user_full_name := COALESCE(
@@ -37,19 +42,31 @@ BEGIN
     
     -- Check if role is specified in metadata (for admin creation, etc.)
     IF NEW.raw_user_meta_data->>'role' IS NOT NULL THEN
-        user_role := (NEW.raw_user_meta_data->>'role')::user_role;
+        BEGIN
+            user_role := (NEW.raw_user_meta_data->>'role')::user_role;
+        EXCEPTION
+            WHEN OTHERS THEN
+                -- Invalid role, use default
+                user_role := 'team_member';
+        END;
     END IF;
     
-    -- Create profile
+    -- Create profile (ignore if already exists - handles race conditions)
     INSERT INTO profiles (user_id, email, full_name, role)
     VALUES (
         NEW.id,
         user_email,
         user_full_name,
         user_role
-    );
+    )
+    ON CONFLICT (user_id) DO NOTHING;
     
     RETURN NEW;
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Log error but don't fail user creation
+        RAISE WARNING 'Error creating profile for user %: %', NEW.id, SQLERRM;
+        RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

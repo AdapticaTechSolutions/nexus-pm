@@ -44,10 +44,18 @@ This ensures:
 
 ## Step 4: Configure Authentication
 
-1. Go to **Authentication** > **Settings** in Supabase dashboard
-2. Enable **Email** provider
-3. Configure email templates (optional)
-4. Set up password requirements (recommended: min 8 characters)
+1. Go to **Authentication** in Supabase dashboard
+2. Click on **Sign In / Providers** (under CONFIGURATION section)
+3. Enable **Email** provider by toggling it on
+4. (Optional) Configure email templates:
+   - Go to **Authentication** > **Email** (under NOTIFICATIONS section)
+   - Customize confirmation, password reset, and other email templates
+5. Set up password requirements:
+   - In **Sign In / Providers**, scroll down to find password settings
+   - Set minimum password length (recommended: 8 characters)
+6. Configure URL redirects (if needed):
+   - Go to **Authentication** > **URL Configuration** (under CONFIGURATION section)
+   - Set your site URL and redirect URLs for OAuth callbacks
 
 ## Step 5: Create Your First Admin User
 
@@ -130,6 +138,22 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 ## Troubleshooting
 
+### "Database error saving new user" Error
+
+This error occurs when inviting/creating users. See **TROUBLESHOOTING.md** for detailed steps.
+
+**Quick Fix:**
+1. Verify schema is created: Check if `profiles` table exists
+2. Verify trigger exists: Check if `on_auth_user_created` trigger exists
+3. Check Auth logs in Supabase dashboard for detailed error
+4. Re-run `auth_triggers.sql` if trigger is missing
+
+**Common Causes:**
+- Schema not created (run `schema.sql` first)
+- Trigger not created (run `auth_triggers.sql`)
+- Email already exists in profiles table
+- Missing enum types (run `schema.sql`)
+
 ### RLS Policies Not Working
 
 - Ensure RLS is enabled: `ALTER TABLE table_name ENABLE ROW LEVEL SECURITY;`
@@ -141,6 +165,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 - Check trigger exists: `SELECT * FROM pg_trigger WHERE tgname = 'on_auth_user_created';`
 - Check trigger function: `SELECT * FROM pg_proc WHERE proname = 'handle_new_user';`
 - Review Supabase logs for errors
+- See TROUBLESHOOTING.md for detailed steps
 
 ### Foreign Key Violations
 
