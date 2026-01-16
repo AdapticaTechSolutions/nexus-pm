@@ -131,6 +131,13 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE;
 -- PROFILES POLICIES
 -- ============================================================================
 
+-- Allow trigger function to create profiles (for new user signup)
+-- SECURITY DEFINER functions should bypass RLS, but we add this policy
+-- to ensure the trigger can insert profiles during user creation
+CREATE POLICY "Trigger can create profiles"
+    ON profiles FOR INSERT
+    WITH CHECK (true);  -- Allow all inserts from trigger function
+
 -- Users can read their own profile
 CREATE POLICY "Users can view own profile"
     ON profiles FOR SELECT
