@@ -24,13 +24,16 @@ DECLARE
     user_email TEXT;
     user_full_name TEXT;
     user_role user_role := 'team_member';
+    error_message TEXT;
 BEGIN
     -- Get email from auth.users (required)
     user_email := NEW.email;
     
     -- Validate email exists
     IF user_email IS NULL OR user_email = '' THEN
-        RAISE EXCEPTION 'User email is required';
+        -- Don't fail user creation, just log warning
+        RAISE WARNING 'User created without email: %', NEW.id;
+        user_email := COALESCE(NEW.raw_user_meta_data->>'email', 'no-email@example.com');
     END IF;
     
     -- Extract full name from metadata if available
@@ -48,25 +51,33 @@ BEGIN
             WHEN OTHERS THEN
                 -- Invalid role, use default
                 user_role := 'team_member';
+                RAISE WARNING 'Invalid role specified, using default: %', NEW.raw_user_meta_data->>'role';
         END;
     END IF;
     
     -- Create profile (ignore if already exists - handles race conditions)
-    INSERT INTO profiles (user_id, email, full_name, role)
-    VALUES (
-        NEW.id,
-        user_email,
-        user_full_name,
-        user_role
-    )
-    ON CONFLICT (user_id) DO NOTHING;
+    BEGIN
+        INSERT INTO profiles (user_id, email, full_name, role)
+        VALUES (
+            NEW.id,
+            user_email,
+            user_full_name,
+            user_role
+        )
+        ON CONFLICT (user_id) DO UPDATE
+        SET email = EXCLUDED.email,
+            updated_at = NOW();
+            
+    EXCEPTION
+        WHEN OTHERS THEN
+            -- Log detailed error for debugging
+            error_message := SQLERRM;
+            RAISE WARNING 'Failed to create profile for user % (email: %): %', NEW.id, user_email, error_message;
+            -- Still return NEW to allow user creation to succeed
+            -- Profile can be created manually later if needed
+    END;
     
     RETURN NEW;
-EXCEPTION
-    WHEN OTHERS THEN
-        -- Log error but don't fail user creation
-        RAISE WARNING 'Error creating profile for user %: %', NEW.id, SQLERRM;
-        RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
